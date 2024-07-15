@@ -16,8 +16,6 @@ fn test_handler(
     _extract: HashMap<String, String>,
 ) -> HandlerResponse<'static> {
     Box::pin(async move {
-        let json_body: JsonTest = _req.from_json_to_struct().unwrap();
-        println!("{:?}", json_body);
         respond(Html(state.hello_page))
     })
 }

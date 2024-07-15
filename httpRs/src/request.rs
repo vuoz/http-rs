@@ -75,6 +75,12 @@ pub struct Request {
     pub headers: HashMap<String, String>,
     //pub cookies: Option<HashMap<String, String>>,
 }
+impl Default for Request {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Request {
     pub fn new() -> Self {
         Request {
@@ -121,37 +127,37 @@ impl Request {
     pub fn cookies(&self) -> Option<HashMap<String, String>> {
         match &self.headers.get("cookie") {
             Some(cookies) => {
-                let cookies_separated: Vec<&str> = cookies.split(";").collect();
+                let cookies_separated: Vec<&str> = cookies.split(';').collect();
                 let mut cookie_map = HashMap::new();
                 let _: Vec<&str> = cookies_separated
                     .into_iter()
                     .take_while(|cookie| {
-                        let parts: Vec<&str> = cookie.split("=").collect();
+                        let parts: Vec<&str> = cookie.split('=').collect();
                         if parts.len() != 2 {
                             return false;
                         }
-                        let mut name = match parts.get(0) {
+                        let mut name = match parts.first() {
                             Some(name) => name.to_string(),
                             None => return false,
                         };
-                        if name.contains(" ") {
-                            name = name.replace(" ", "");
+                        if name.contains(' ') {
+                            name = name.replace(' ', "");
                         }
                         let mut value = match parts.get(1) {
                             Some(name) => name.to_string(),
                             None => return false,
                         };
-                        if value.contains(" ") {
-                            value = value.replace(" ", "");
+                        if value.contains(' ') {
+                            value = value.replace(' ', "");
                         }
                         cookie_map.insert(name, value);
-                        return true;
+                        true
                     })
                     .collect();
 
-                return Some(cookie_map);
+                Some(cookie_map)
             }
-            None => return None,
+            None => None,
         }
     }
 }
@@ -177,14 +183,14 @@ impl ToRequest for ParseRes {
 
 pub fn parse_request(req_str: Cow<'_, str>) -> Result<ParseRes, ParseError> {
     let lines: Vec<&str> = req_str.split("\r\n").collect();
-    if lines.len() <= 0 {
+    if lines.is_empty() {
         return Err(ParseError::NotValidRequest);
     }
-    let method_line = match lines.get(0) {
+    let method_line = match lines.first() {
         Some(line) => line,
         None => return Err(ParseError::Empty),
     };
-    let req_metadata = match parse_method_line(&method_line) {
+    let req_metadata = match parse_method_line(method_line) {
         Some(data) => data,
         None => return Err(ParseError::CannotParseMetaData),
     };
@@ -215,13 +221,10 @@ pub fn parse_request(req_str: Cow<'_, str>) -> Result<ParseRes, ParseError> {
         };
 
         body = match lines.get(j + 1) {
-            Some(line) => {
-                let body_parsed = match parse_body(line, content_lenght) {
-                    Some(data) => data,
-                    None => Body::None,
-                };
-                body_parsed
-            }
+            Some(line) => match parse_body(line, content_lenght) {
+                Some(data) => data,
+                None => Body::None,
+            },
             None => Body::None,
         };
     } else {
@@ -237,30 +240,27 @@ pub fn parse_request(req_str: Cow<'_, str>) -> Result<ParseRes, ParseError> {
                 extract: None,
             }
         }
-        None => {
-            let req = ParseRes {
-                metadata: req_metadata,
-                body: None,
-                headers,
-                extract: None,
-            };
-            req
-        }
+        None => ParseRes {
+            metadata: req_metadata,
+            body: None,
+            headers,
+            extract: None,
+        },
     };
     // This parses the requests query params even if the correct content-type is not set
     // So even a get request without the header can be /page?id=3 an still me matched correctly
-    if req.metadata.path.contains("?") {
+    if req.metadata.path.contains('?') {
         let splits: Vec<String> = req
             .metadata
             .path
-            .split("?")
+            .split('?')
             .map(|split| split.to_string())
             .collect();
         if splits.len() != 2 {
             return Err(ParseError::NotValidRequest);
         }
-        if let Some(path) = splits.get(0) {
-            req.metadata.path = path.clone();
+        if let Some(path) = splits.first() {
+            req.metadata.path.clone_from(path);
         } else {
             return Err(ParseError::NotValidRequest);
         }
@@ -269,25 +269,19 @@ pub fn parse_request(req_str: Cow<'_, str>) -> Result<ParseRes, ParseError> {
             let extract = match extract_result {
                 None => return Err(ParseError::NotValidRequest),
                 // This match isn't really ideal will try to find another solution
-                Some(result) => {
-                    let res = match result {
-                        crate::request::ContentType::Json(_) => {
-                            return Err(ParseError::NotValidRequest)
-                        }
-                        crate::request::ContentType::UrlEncoded(res) => res,
-                        crate::request::ContentType::PlainText(_) => {
-                            return Err(ParseError::NotValidRequest)
-                        }
-                        crate::request::ContentType::Binary(_) => {
-                            return Err(ParseError::NotValidRequest)
-                        }
-                        crate::request::ContentType::None => {
-                            return Err(ParseError::NotValidRequest)
-                        }
-                    };
-
-                    res
-                }
+                Some(result) => match result {
+                    crate::request::ContentType::Json(_) => {
+                        return Err(ParseError::NotValidRequest)
+                    }
+                    crate::request::ContentType::UrlEncoded(res) => res,
+                    crate::request::ContentType::PlainText(_) => {
+                        return Err(ParseError::NotValidRequest)
+                    }
+                    crate::request::ContentType::Binary(_) => {
+                        return Err(ParseError::NotValidRequest)
+                    }
+                    crate::request::ContentType::None => return Err(ParseError::NotValidRequest),
+                },
             };
             req.extract = Some(extract);
         } else {
@@ -295,5 +289,5 @@ pub fn parse_request(req_str: Cow<'_, str>) -> Result<ParseRes, ParseError> {
         }
     }
 
-    return Ok(req);
+    Ok(req)
 }

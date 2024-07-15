@@ -1,11 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::parse;
 use crate::parse::NewRequestType;
-use crate::request::parse_request;
-use crate::request::ToRequest;
-use crate::{request::Request, response::IntoResp};
+use crate::{response::IntoResp};
 use async_std::sync::Arc;
-use bytes::Bytes;
 use http::StatusCode;
 use std::pin::Pin;
 use std::vec;
@@ -359,7 +356,7 @@ where
     }
     pub fn add_state(&mut self, state: T) -> Self {
         self.state = Some(state);
-        return std::mem::take(self);
+        std::mem::take(self)
     }
     pub fn make_into_serveable(self) -> &'static mut Self {
         let box_self = Box::new(self);
@@ -382,7 +379,7 @@ where
                 //                                                an Arc::clone would be better since it
                 //                                                does not create new memory
                 //
-                match handle_conn_node_based(socket, &self, None, self.state.clone()).await {
+                match handle_conn_node_based(socket, self, None, self.state.clone()).await {
                     Ok(_) => (),
                     Err(e) => {
                         panic!("Cannot handle incomming connection: {e} \n")
@@ -404,10 +401,7 @@ where
                 None => return None,
             }
         }
-        match pub_walk(&self.children, path) {
-            Some(handler) => return Some(handler),
-            None => return None,
-        }
+        pub_walk(&self.children, path).map(|handler| handler)
     }
     pub fn add_handler(
         &mut self,
@@ -418,7 +412,7 @@ where
             self.handler = Some(handler);
             return Ok(Box::new(std::mem::take(self)));
         }
-        for i in LIST_UNSUPPORTED.into_iter() {
+        for i in LIST_UNSUPPORTED.iter() {
             if path.contains(*i) {
                 panic!(
                     "Your path contains a value that is unsupported. Char: {}",
@@ -436,8 +430,8 @@ where
                         // this is ugly
                         vec.push(node);
                         // this is due to the std::mem::take that leaves a default in there
-                        if let Some(first_node) = vec.get(0) {
-                            if first_node.subpath == "" {
+                        if let Some(first_node) = vec.first() {
+                            if first_node.subpath.is_empty() {
                                 vec.remove(0);
                             }
                         }
@@ -446,9 +440,9 @@ where
                 }
                 return Ok(Box::new(std::mem::take(self)));
             }
-            return Ok(node);
+            Ok(node)
         } else {
-            return Ok(Box::new(std::mem::take(self)));
+             Ok(Box::new(std::mem::take(self)))
         }
     }
     pub fn insert(&mut self, path: String, path_rn: String, func: Handler<T>) -> Box<Node<T>> {
@@ -460,13 +454,13 @@ where
 
         let path_for_new_node = match path_rn.as_str() {
             "/" => {
-                let splits: Vec<String> = path.split("/").map(|split| split.to_string()).collect();
+                let splits: Vec<String> = path.split('/').map(|split| split.to_string()).collect();
                 let mut to_add = String::new();
                 for i in splits.into_iter() {
-                    if i == "" {
+                    if i.is_empty() {
                         continue;
                     }
-                    to_add = i.clone();
+                    to_add.clone_from(&i);
                     break;
                 }
                 let final_str = "/".to_string() + to_add.as_str();
@@ -476,22 +470,22 @@ where
                 let missing_part_of_path = path.replace(path_rn.clone().as_str(), "").to_string();
 
                 let splits: Vec<String> = missing_part_of_path
-                    .split("/")
+                    .split('/')
                     .map(|split| split.to_string())
                     .collect();
                 let mut to_add_to_curr = String::new();
                 for i in splits.into_iter() {
-                    if i == "" {
+                    if i.is_empty(){
                         continue;
                     }
-                    to_add_to_curr = i.clone();
+                    to_add_to_curr.clone_from(&i);
                     break;
                 }
-                let mut final_path = match path_rn.ends_with("/") {
+                let mut final_path = match path_rn.ends_with('/') {
                     false => path_rn.clone() + "/" + to_add_to_curr.as_str(),
                     true => path_rn.clone() + to_add_to_curr.as_str(),
                 };
-                if to_add_to_curr == "" {
+                if to_add_to_curr.is_empty() {
                     final_path = missing_part_of_path;
                 }
                 final_path
@@ -502,18 +496,17 @@ where
             Some(children) => {
                 let node = new_node.insert(path.clone(), path_for_new_node.clone(), func);
                 children.push(node);
-                return Box::new(std::mem::take(self));
+                 Box::new(std::mem::take(self))
             }
             None => {
                 //Recursivly insert until the path is reached
                 let node = new_node.insert(path.clone(), path_for_new_node.clone(), func);
-                let mut new_vec = Vec::new();
-                new_vec.push(node);
+                let new_vec = vec![node];
                 let boxed_vec = Box::new(new_vec);
                 self.children = Some(boxed_vec);
-                return Box::new(std::mem::take(self));
+                Box::new(std::mem::take(self))
             }
-        };
+        }
     }
 }
 
@@ -545,7 +538,7 @@ fn pub_walk_add_node<
                     // already added and want to add /user/:id/cool/ts/:ts
                     // this happens since /cool also appears in /user/:id/cool/ts/:ts
                     // this is not wanted since you obv should not append to /wowo
-                    matches = matches + 1;
+                    matches += 1;
 
                     match pub_walk_add_node(child, path.clone(), func) {
                         Some((node, ok)) => return Some((node, ok)),
@@ -559,13 +552,13 @@ fn pub_walk_add_node<
 
                 return Some((node, true));
             }
-            return None;
+            None
         }
         None => {
             let node_path_curr = node.subpath.clone();
             //let node = node.insert(path, node_path_curr, func);
             let node = node.insert(path, node_path_curr, func);
-            return Some((node, false));
+            Some((node, false))
         }
     }
 }
@@ -577,13 +570,13 @@ fn pub_walk<
     path: String,
 ) -> Option<RoutingResult<T>> {
     if let Some(children) = children {
-        for child in children.as_ref().into_iter() {
-            if child.subpath.contains(":") {
+        for child in children.as_ref().iter() {
+            if child.subpath.contains(':') {
                 // This generic path extract handling isn't very well optimized
                 // Need to work on this
                 let splits: Vec<String> = child
                     .subpath
-                    .split(":")
+                    .split(':')
                     .map(|split| split.to_string())
                     .collect();
                 if splits.len() != 2 {
@@ -592,13 +585,14 @@ fn pub_walk<
 
                     let child_path_splits: Vec<String> = child
                         .subpath
-                        .split("/")
+                        .split(':')
                         .map(|split| split.to_string())
                         .collect();
                     let curr_path_split: Vec<String> =
-                        path.split("/").map(|split| split.to_string()).collect();
+                        path.split(':').map(|split| split.to_string()).collect();
                     if curr_path_split.len() != child_path_splits.len() {
                         // if the path is longer than the one rn we continue the search
+                        
                         match pub_walk(&child.children, path.clone()) {
                             Some(handler) => return Some(handler),
                             None => (),
@@ -609,9 +603,9 @@ fn pub_walk<
                     // extract
                     let mut extracts: HashMap<String, String> = HashMap::new();
                     'inner: for (i, val) in child_path_splits.into_iter().enumerate() {
-                        if val.starts_with(":") {
+                        if val.starts_with(':') {
                             let extract = curr_path_split.get(i)?;
-                            extracts.insert(val.replace(":", "").to_string(), extract.to_string());
+                            extracts.insert(val.replace(':', "").to_string(), extract.to_string());
                             continue 'inner;
                         }
                     }
@@ -631,7 +625,7 @@ fn pub_walk<
                 // /user/:id then split by ":"  at index 0 we get the path before the ":" and at index 1 the identifier
                 // or how the user should be abled to extract it in his handler
                 let identifier = splits.get(1)?;
-                let path_before = splits.get(0)?;
+                let path_before = splits.first()?;
                 if path.contains(path_before) {
                     let values_split: Vec<String> = path
                         .split(path_before)
@@ -658,7 +652,7 @@ fn pub_walk<
                                 Some(handler) => return Some(handler),
                                 None => (),
                             };
-                            ()
+                            
                         }
                     }
                 }

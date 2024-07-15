@@ -18,26 +18,26 @@ use std::collections::HashMap;
 pub fn parse_params(inpt: &str) -> Option<ContentType> {
     let mut new_map = HashMap::new();
     let _: Vec<()> = inpt
-        .split("&")
+        .split('&')
         .map(|param| {
-            let params_vec: Vec<String> = param.split("=").map(|param| param.to_string()).collect();
-            if let Some(key) = params_vec.get(0) {
+            let params_vec: Vec<String> = param.split('=').map(|param| param.to_string()).collect();
+            if let Some(key) = params_vec.first() {
                 if let Some(val) = params_vec.get(1) {
                     let new_param = QueryParam {
                         key: key.clone(),
                         val: val.clone(),
                     };
                     new_map.insert(new_param.key, new_param.val);
-                    ()
+                    
                 }
             }
-            ()
+            
         })
         .collect::<Vec<()>>();
-    if new_map.len() == 0 {
+    if new_map.is_empty() {
         return None;
     }
-    return Some(ContentType::UrlEncoded(new_map));
+    Some(ContentType::UrlEncoded(new_map))
 }
 // now deprecated
 pub fn parse_body_new(inpt: Body, content_type: &str) -> Option<ContentType> {
@@ -61,28 +61,28 @@ pub fn parse_body_new(inpt: Body, content_type: &str) -> Option<ContentType> {
             data
         }
 
-        _ => return None,
+        _ => None,
     }
 }
 pub fn parse_json(inpt: &str) -> Option<ContentType> {
-    let parts: Vec<String> = inpt.split("\n").map(|part| part.to_string()).collect();
-    let text_part = parts.get(0)?.clone();
-    if text_part == "" {
+    let parts: Vec<String> = inpt.split('\n').map(|part| part.to_string()).collect();
+    let text_part = parts.first()?.clone();
+    if text_part.is_empty() {
         return None;
     }
-    return Some(ContentType::Json(text_part));
+    Some(ContentType::Json(text_part))
 }
 pub fn parse_body(inpt: &str, lenght: u32) -> Option<Body> {
-    let mut parts: Vec<String> = inpt.split("\0").map(|part| part.to_string()).collect();
+    let mut parts: Vec<String> = inpt.split('\0').map(|part| part.to_string()).collect();
     let text_part = parts.get_mut(0)?;
     if text_part.len() != lenght as usize {
         return None;
     }
-    if text_part == "" {
+    if text_part.is_empty() {
         return None;
     }
 
-    return Some(Body::Text(std::mem::take(text_part)));
+    Some(Body::Text(std::mem::take(text_part)))
 }
 
 pub fn parse_header(inpt: &str) -> Option<Header> {
@@ -90,27 +90,27 @@ pub fn parse_header(inpt: &str) -> Option<Header> {
     if headers.len() != 2 {
         return None;
     }
-    let key = headers.get(0)?.clone();
+    let key = headers.first()?.clone();
     let val = headers.get(1)?.clone();
 
-    return Some(Header { key, val });
+    Some(Header { key, val })
 }
 pub fn parse_line() -> Option<TypeOfData> {
-    return None;
+    None
 }
 pub fn parse_method_line(inpt: &str) -> Option<MetaData> {
-    let parts: Vec<&str> = inpt.split(" ").collect();
+    let parts: Vec<&str> = inpt.split(' ').collect();
     if parts.len() != 3 {
         return None;
     }
-    let method = parts.get(0)?;
+    let method = parts.first()?;
     let path = parts.get(1)?;
     let version = parts.get(2)?;
-    return Some(MetaData {
+    Some(MetaData {
         method: method.to_string(),
         path: path.to_string(),
         version: version.to_string(),
-    });
+    })
 }
 #[derive(Clone, Debug, Default)]
 pub struct NewRequestType {
@@ -122,7 +122,7 @@ pub struct NewRequestType {
 impl NewRequestType {
     pub fn from_json_to_struct<T: DeserializeOwned>(&self) -> std::io::Result<T> {
         match &self.body {
-            None => return Err(std::io::Error::from(std::io::ErrorKind::InvalidData)),
+            None => Err(std::io::Error::from(std::io::ErrorKind::InvalidData)),
             Some(body) => {
                 let res: T = match serde_json::from_slice(&body[..]) {
                     Ok(res) => res,
@@ -147,7 +147,7 @@ pub struct NewMetaData {
 pub fn parse_new_method_line(line: &str) -> Option<NewMetaData> {
     let mut meta_data = NewMetaData::default();
     let mut count = 0;
-    for part in line.split(" ") {
+    for part in line.split(' ') {
         count += 1;
         if count == 1 {
             meta_data.method = match Method::from_bytes(part.as_bytes()) {
@@ -168,7 +168,7 @@ pub fn parse_new_method_line(line: &str) -> Option<NewMetaData> {
     if count != 3 {
         return None;
     }
-    return Some(meta_data);
+    Some(meta_data)
 }
 pub fn parse_header_new(line: &str) -> Option<(&str, &str)> {
     let mut key = None;
@@ -186,21 +186,18 @@ pub fn parse_header_new(line: &str) -> Option<(&str, &str)> {
         }
     }
     match key {
-        Some(key) => match val {
-            Some(val) => return Some((key, val)),
-            None => return None,
-        },
-        None => return None,
-    };
+        Some(key) => val.map(|val| (key, val)),
+        None => None,
+    }
 }
 pub fn parse_params_from_path(path_after_question_mark: &str) -> Option<HashMap<String, String>> {
     let mut map: Option<HashMap<String, String>> = None;
-    'outer: for param_pair in path_after_question_mark.split("&") {
+    'outer: for param_pair in path_after_question_mark.split('&') {
         match map.as_mut() {
             Some(map) => {
                 let mut key = None;
                 let mut val = None;
-                'inner: for (count, part) in param_pair.split("=").enumerate() {
+                'inner: for (count, part) in param_pair.split('=').enumerate() {
                     if count == 0 {
                         key = Some(part);
                         continue 'inner;
@@ -225,7 +222,7 @@ pub fn parse_params_from_path(path_after_question_mark: &str) -> Option<HashMap<
             None => {
                 let mut key = None;
                 let mut val = None;
-                'inner: for (count, part) in param_pair.split("=").enumerate() {
+                'inner: for (count, part) in param_pair.split('=').enumerate() {
                     if count == 0 {
                         key = Some(part);
                         continue 'inner;
@@ -251,7 +248,7 @@ pub fn parse_params_from_path(path_after_question_mark: &str) -> Option<HashMap<
             }
         }
     }
-    return map;
+    map
 }
 
 pub fn parse_request(req_str: &Cow<'_, str>) -> Result<NewRequestType, ParseError> {
@@ -263,10 +260,10 @@ pub fn parse_request(req_str: &Cow<'_, str>) -> Result<NewRequestType, ParseErro
     for line in &lines {
         count += 1;
         if count == 1 {
-            match parse_new_method_line(&line) {
+            match parse_new_method_line(line) {
                 Some(mut parse_res) => {
-                    if parse_res.path.contains("?") {
-                        let split_res = parse_res.path.split_once("?").unwrap();
+                    if parse_res.path.contains('?') {
+                        let split_res = parse_res.path.split_once('?').unwrap();
                         match parse_params_from_path(split_res.1) {
                             Some(params) => request.params = Some(params),
                             None => (),
@@ -296,13 +293,13 @@ pub fn parse_request(req_str: &Cow<'_, str>) -> Result<NewRequestType, ParseErro
     if &lines.len() == &0 {
         request.body = None
     } else {
-        let body = lines.swap_remove(&lines.len() - 1 as usize);
-        if body == "" {
+        let body = lines.swap_remove(&lines.len() - 1_usize);
+        if body.is_empty() {
             request.body = None;
         } else {
             request.body = Some(BytesMut::from(body))
         }
     }
 
-    return Ok(request.clone());
+    Ok(request.clone())
 }

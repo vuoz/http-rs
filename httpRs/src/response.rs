@@ -20,14 +20,14 @@ impl IntoResp for router::Html {
             "Content-type: text/html".to_owned() + "\r\n",
             self.0,
         );
-        return Vec::from(response);
+        Vec::from(response)
     }
 }
 impl IntoResp for (Cookie, Redirect) {
     fn into_response(&self) -> Vec<u8> {
         let response = format!(
             "HTTP/1.1 301 Moved Permanently\r\nContent-Length: {}\r\n{}\r\n",
-            0.to_string(),
+            0,
             self.0.to_header() + "\r\n" + &self.1.to_header() + "\r\n",
         );
         Vec::from(response)
@@ -74,7 +74,7 @@ impl IntoResp for (StatusCode, String) {
             self.1.len(),
             self.1
         );
-        return Vec::from(response);
+        Vec::from(response)
     }
 }
 impl IntoResp for (StatusCode, &str) {
@@ -86,7 +86,7 @@ impl IntoResp for (StatusCode, &str) {
             self.1.len(),
             self.1
         );
-        return Vec::from(response);
+        Vec::from(response)
     }
 }
 impl IntoResp for Redirect {
@@ -98,7 +98,7 @@ impl IntoResp for Redirect {
             0,
             self.to_header() + "\r\n"
         );
-        return Vec::from(response);
+        Vec::from(response)
     }
 }
 impl IntoResp for StatusCode {
@@ -109,7 +109,7 @@ impl IntoResp for StatusCode {
             self.clone().into_status_message(),
             0,
         );
-        return Vec::from(response);
+        Vec::from(response)
     }
 }
 impl IntoResp for (StatusCode, Vec<u8>) {
@@ -122,8 +122,8 @@ impl IntoResp for (StatusCode, Vec<u8>) {
         );
 
         let bytes = Vec::from(response);
-        let all_bytes = [bytes, self.1.clone()].concat();
-        all_bytes
+        
+        [bytes, self.1.clone()].concat()
     }
 }
 impl IntoResp for (StatusCode, HashMap<String, String>, Vec<u8>) {
@@ -143,8 +143,8 @@ impl IntoResp for (StatusCode, HashMap<String, String>, Vec<u8>) {
         );
 
         let bytes = Vec::from(response);
-        let all_bytes = [bytes, self.2.clone()].concat();
-        all_bytes
+        
+        [bytes, self.2.clone()].concat()
     }
 }
 impl IntoResp for (StatusCode, HashMap<String, String>, String) {

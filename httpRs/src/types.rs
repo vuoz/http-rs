@@ -18,30 +18,30 @@ impl Method {
     pub fn from_bytes(inpt: &[u8]) -> Result<Method, MethodError> {
         match inpt.len() {
             3 => match inpt {
-                b"GET" => return Ok(Method::GET),
-                b"PUT" => return Ok(Method::PUT),
-                _ => return Err(MethodError::Err("invalid Method")),
+                b"GET" => Ok(Method::GET),
+                b"PUT" => Ok(Method::PUT),
+                _ => Err(MethodError::Err("invalid Method")),
             },
             4 => match inpt {
-                b"POST" => return Ok(Method::POST),
-                b"HEAD" => return Ok(Method::HEAD),
-                _ => return Err(MethodError::Err("invalid Method")),
+                b"POST" => Ok(Method::POST),
+                b"HEAD" => Ok(Method::HEAD),
+                _ => Err(MethodError::Err("invalid Method")),
             },
             5 => match inpt {
-                b"TRACE" => return Ok(Method::TRACE),
-                b"PATCH" => return Ok(Method::PATCH),
-                _ => return Err(MethodError::Err("invalid Method")),
+                b"TRACE" => Ok(Method::TRACE),
+                b"PATCH" => Ok(Method::PATCH),
+                _ => Err(MethodError::Err("invalid Method")),
             },
             6 => match inpt {
-                b"DELETE" => return Ok(Method::DELETE),
-                _ => return Err(MethodError::Err("invalid Method")),
+                b"DELETE" => Ok(Method::DELETE),
+                _ => Err(MethodError::Err("invalid Method")),
             },
             7 => match inpt {
-                b"OPTIONS" => return Ok(Method::OPTIONS),
-                b"CONNECT" => return Ok(Method::CONNECT),
-                _ => return Err(MethodError::Err("invalid Method")),
+                b"OPTIONS" => Ok(Method::OPTIONS),
+                b"CONNECT" => Ok(Method::CONNECT),
+                _ => Err(MethodError::Err("invalid Method")),
             },
-            _ => return Err(MethodError::Err("invalid length")),
+            _ => Err(MethodError::Err("invalid length")),
         }
     }
 }
