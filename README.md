@@ -2,6 +2,11 @@
 
 
 Just another web framework but in rust
+### Disclaimer
+This was done for learning purposes
+
+### Info 
+Full history is here [prev repo](https://github.com/vuoz/http.rs)
 
 ## Goals
 * Understand the Http Protocol  
